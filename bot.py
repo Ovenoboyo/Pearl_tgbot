@@ -7,9 +7,7 @@ import sqlite3
 import logging
 import telegram
 
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackQueryHandler
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-
+from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
 # Enable logging
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                     level=logging.DEBUG)
