@@ -72,7 +72,7 @@ def getlink (filename):
                     link = link.replace("\"","");
                     link = link.replace(",","");
                     url = link
-                    
+        myFile.close()            
         return url
         
 def getxda (filename):
@@ -88,7 +88,7 @@ def getxda (filename):
                     link = link.replace("\"","");
                     link = link.replace(",","");
                     url = link
-                    
+        myFile.close()            
         return url
        
 def getdate (filename):
@@ -102,7 +102,8 @@ def getdate (filename):
                 if lookup in line:
                     date = re.findall(r'\b\d+\b', line)
                     datetime = int(date[0])
-                    
+
+        myFile.close()            
         conn = sqlite3.connect('list.db')
         cursor = conn.execute("SELECT DATE from LIST WHERE (NAME=?)", (filename,))
         entry = cursor.fetchone()
@@ -166,7 +167,7 @@ def update(update, context):
         maintainer = getmaintainer(filename)
         name = filename.split(".")
         name = name[0]
-        kek = "📢*New Pearl Update*\n\n📱Device: *"+str(name)+"*\n🙎‍♂Maintainer: "+str(maintainer)+"\nLinks ⤵️\n\n⬇️ ROM : [Here]("+str(link)+")\n\n📜 XDA : [Here]("+str(xda)+")\n\nChangelog: "+"[Here]("+str(changelog)+")" 
+        kek = "📢*New Pearl Update*\n\n📱Device: *"+str(name)+"*\n🙎‍♂Maintainer: "+str(maintainer)+"\nLinks ⤵️\n\n⬇️ ROM : "+"[Here]("+str(link)+")"+"\n\n📜 XDA : "+"[Here]("+str(xda)+")"+"\n\nChangelog: "+"[Here]("+str(changelog)+")" 
         if toggle == 1 :
             context.bot.sendMessage(chat_id='@testchannel1312324', text=str(kek), parse_mode=telegram.ParseMode.MARKDOWN)
 
