@@ -21,6 +21,9 @@ def error(update, context):
     """Log Errors caused by Updates."""
     logger.warning('Update "%s" caused error "%s"', update, context.error)
 
+def help(update, context):
+    """Send a message when the command /help is issued."""
+    update.message.reply_text('ono')
 
 if not os.path.exists('list.db'):
     conn = sqlite3.connect('list.db')
