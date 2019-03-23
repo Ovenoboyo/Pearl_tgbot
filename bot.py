@@ -34,9 +34,9 @@ if not os.path.exists('list.db'):
     
 toggle = 0
 
-filenamelist = ["Mido.txt"]     
-urllist = ["https://raw.githubusercontent.com/PearlOS/OTA/master/mido.json"]
-changeloglist = ["https://github.com/PearlOS/OTA/blob/master/mido.md"]
+filenamelist = ["Mido.txt", "Bacon.txt"]     
+urllist = ["https://raw.githubusercontent.com/PearlOS/OTA/master/mido.json", "https://raw.githubusercontent.com/PearlOS/OTA/master/bacon.json"]
+changeloglist = ["https://github.com/PearlOS/OTA/blob/master/mido.md", "https://raw.githubusercontent.com/PearlOS/OTA/master/bacon.md"]
 
 def download(url, filename):
     ver = urllib2.urlopen(url)
@@ -170,9 +170,10 @@ def update(update, context):
         maintainer = getmaintainer(filename)
         name = filename.split(".")
         name = name[0]
-        kek = "📢*New Pearl Update*\n\n📱Device: *"+str(name)+"*\n🙎‍♂Maintainer: "+str(maintainer)+"\nLinks ⤵️\n\n⬇️ ROM : "+"[Here]("+str(link)+")"+"\n\n📜 XDA : "+"[Here]("+str(xda)+")"+"\n\nChangelog: "+"[Here]("+str(changelog)+")" 
+        kek = "📢*New Pearl Update*\n\n📱Device: *"+str(name)+"*\n🙎‍♂Maintainer: "+str(maintainer)+"\nLinks ⤵️\n\n⬇️ ROM : "+"[Here]("+str(link)+")"+"\n\n📜 XDA : "+"[Here]("+str(xda)+")"+"\n\n📕Changelog: "+"[Here]("+str(changelog)+")"
         if toggle == 1 :
             context.bot.sendMessage(chat_id='@testchannel1312324', text=str(kek), parse_mode=telegram.ParseMode.MARKDOWN)
+            context.bot.sendSticker(chat_id='@testchannel1312324', sticker='CAADBQADmwADiYk3GUJzG4UKA2TLAg')
 
 if __name__ == '__main__':
     main()          
