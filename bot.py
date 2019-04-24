@@ -6,6 +6,7 @@ import re
 import sqlite3
 import logging
 import telegram
+import psycopg2
 
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
 # Enable logging
@@ -17,32 +18,47 @@ logger = logging.getLogger(__name__)
 # Define a few command handlers. These usually take the two arguments bot and
 # update. Error handlers also receive the raised TelegramError object in error.
 
-def error(update, context):
+TOKEN = os.getenv("TOKEN")
+DATABASE_URL = os.environ['DATABASE_URL']
+
+def error(bot, update):
     """Log Errors caused by Updates."""
     logger.warning('Update "%s" caused error "%s"', update, context.error)
 
-def help(update, context):
+def help(bot, update):
     """Send a message when the command /help is issued."""
     update.message.reply_text('ono')
 
-if not os.path.exists('list.db'):
-    conn = sqlite3.connect('list.db')
-    conn.execute('''CREATE TABLE LIST
-            (NAME           TEXT    NOT NULL,
-             DATE           INT     NOT NULL);''')
-    conn.close()
+def teston(bot, update):
+    global debug
+    debug = 1
+    update.message.reply_text('debug on')
+
+def testoff(bot, update):
+    global debug
+    debug = 0
+    update.message.reply_text('debug off')
+
+conn = psycopg2.connect(DATABASE_URL, sslmode='require')
+cur = conn.cursor()
+#cur.execute('''CREATE TABLE LIST
+#        (NAME           TEXT    NOT NULL,
+#         DATE           INT     NOT NULL);''')
+#conn.commit()
+conn.close()
     
 toggle = 0
+debug = 0
 
-filenamelist = ["Mido.txt", "Bacon.txt"]     
-urllist = ["https://raw.githubusercontent.com/PearlOS/OTA/master/mido.json", "https://raw.githubusercontent.com/PearlOS/OTA/master/bacon.json"]
-changeloglist = ["https://github.com/PearlOS/OTA/blob/master/mido.md", "https://raw.githubusercontent.com/PearlOS/OTA/master/bacon.md"]
+filenamelist = []
+urllist = []
+changeloglist = []
 
 def download(url, filename):
     ver = urllib2.urlopen(url)
     html = ver.read()
 
-    update = html.decode("utf8")
+    update = html.decode('utf-8')
     ver.close()
     if os.path.isfile(filename):
         os.remove(filename)
@@ -61,9 +77,23 @@ def getver(filename):
                     version = re.findall("\d+\.\d+", line)
                     ver = version
         return ver
-        
+
+def getLists():
+    global filenamelist, urllist, changeloglist, debug
+    #if debug == 0:
+    download("https://raw.githubusercontent.com/PearlOS/OTA/master/list.txt", "array.txt")
+    f=open('array.txt', encoding='utf-8')
+    lines=f.readlines()
+    filenames = lines[0].replace("[", "").replace("]", "").split(", ")
+    urls = lines[1].replace("[","").replace("]", "").split(", ")
+    changelogs = lines[2].replace("[","").replace("]", "").split(", ")
+    for i in range(0, len(urls) ):
+        filenamelist.insert(i, filenames[i])
+        urllist.insert(i, urls[i])
+        changeloglist.insert(i, changelogs[i])
+
 def getlink (filename):
-    if os.path.isfile(filename):    
+    if os.path.isfile(filename):
         lookup = 'url'
         url = "null"
 
@@ -107,17 +137,18 @@ def getdate (filename):
                     datetime = int(date[0])
 
         myFile.close()            
-        conn = sqlite3.connect('list.db')
-        cursor = conn.execute("SELECT DATE from LIST WHERE (NAME=?)", (filename,))
+        conn = psycopg2.connect(DATABASE_URL, sslmode='require')
+        cursor = conn.cursor()
+        cursor.execute("SELECT DATE from LIST WHERE NAME LIKE (%s)", (filename,))
         entry = cursor.fetchone()
         if entry is None:
             print ("here")
-            cursor.execute('INSERT INTO LIST (NAME,DATE) VALUES (?,?)', (filename, datetime))
+            cursor.execute('INSERT INTO LIST (NAME,DATE) VALUES (%s, %s)', (filename, datetime))
             toggle = 1
             
         else:
             if entry[0] < datetime:
-                cursor.execute("UPDATE LIST set DATE = (?) where NAME = (?)", (datetime, filename))
+                cursor.execute("UPDATE LIST set DATE = (%s) where NAME = (%s)", (datetime, filename))
                 toggle = 1
                 
             else:
@@ -142,23 +173,32 @@ def getmaintainer(filename):
                     maintainer = name.replace(",","");
         return maintainer
 
+def run(updater):
+    PORT = int(os.environ.get("PORT", "8443"))
+    HEROKU_APP_NAME = os.environ.get("HEROKU_APP_NAME")
+    updater.start_webhook(listen="0.0.0.0",
+                          port=PORT,
+                          url_path=TOKEN)
+    updater.bot.set_webhook("https://{}.herokuapp.com/{}".format(HEROKU_APP_NAME, TOKEN))
+
 def main():
     """Start the bot."""
-    updater = Updater("895664876:AAHcCZodvHYht7jLYHYCkrT4zLeWLLc73gc", use_context=True)
+    updater = Updater(TOKEN)
 
     dp = updater.dispatcher
 
     dp.add_handler(CommandHandler("help", help))
     dp.add_handler(CommandHandler("update", update))
+    dp.add_handler(CommandHandler("testoff", testoff))
+    dp.add_handler(CommandHandler("teston", teston))
 
     dp.add_error_handler(error)
 
-    updater.start_polling()
+    run(updater)
 
-    updater.idle()
-
-def update(update, context): 
-    for i in range(len(urllist)):
+def update(bot, update): 
+    getLists()
+    for i in range(len(filenamelist)):
         url = urllist[i]
         filename = filenamelist[i]
         changelog = changeloglist[i]
@@ -170,10 +210,12 @@ def update(update, context):
         maintainer = getmaintainer(filename)
         name = filename.split(".")
         name = name[0]
-        kek = "📢*New Pearl Update*\n\n📱Device: *"+str(name)+"*\n🙎‍♂Maintainer: "+str(maintainer)+"\nLinks ⤵️\n\n⬇️ ROM : "+"[Here]("+str(link)+")"+"\n\n📜 XDA : "+"[Here]("+str(xda)+")"+"\n\n📕Changelog: "+"[Here]("+str(changelog)+")"
-        if toggle == 1 :
-            context.bot.sendMessage(chat_id='@testchannel1312324', text=str(kek), parse_mode=telegram.ParseMode.MARKDOWN)
-            context.bot.sendSticker(chat_id='@testchannel1312324', sticker='CAADBQADmwADiYk3GUJzG4UKA2TLAg')
-
+        kek = "📢*New Pearl Update*\n\n📱Device: *"+str(name)+"*\n🙎‍♂Maintainer: *"+str(maintainer)+"*\nLinks ⤵️\n\n⬇️ ROM : "+"[Here]("+str(link)+")"+"\n\n📜 XDA : "+"[Here]("+str(xda)+")"+"\n\n📕Changelog: "+"[Here]("+str(changelog)+")"
+        if debug == 1:
+            bot.sendMessage(chat_id='@testchannel1312324', text=str(kek), parse_mode=telegram.ParseMode.MARKDOWN)
+            bot.sendSticker(chat_id='@testchannel1312324', sticker='CAADBQADmwADiYk3GUJzG4UKA2TLAg')
+        elif (debug == 0 and toggle == 1) :
+            bot.sendMessage(chat_id='@Project_Pearl', text=str(kek), parse_mode=telegram.ParseMode.MARKDOWN)
+            bot.sendSticker(chat_id='@Project_Pearl', sticker='CAADBQADmwADiYk3GUJzG4UKA2TLAg')
 if __name__ == '__main__':
-    main()          
+    main()
