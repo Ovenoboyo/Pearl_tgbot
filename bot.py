@@ -2,11 +2,13 @@
 # -*- coding: utf-8 -*-
 import urllib.request as urllib2
 import os
+import stat
 import re
 import sqlite3
 import logging
 import telegram
 import psycopg2
+import subprocess
 
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
 # Enable logging
@@ -80,17 +82,34 @@ def getver(filename):
 
 def getLists():
     global filenamelist, urllist, changeloglist, debug
-    #if debug == 0:
-    download("https://raw.githubusercontent.com/PearlOS/OTA/master/list.txt", "array.txt")
-    f=open('array.txt', encoding='utf-8')
+    import os
+    dirlist = os.listdir("/app")
+
+    from pprint import pprint
+    pprint(dirlist)
+
+    os.chmod("./files.sh", 0o755)
+    proc = subprocess.Popen([". /app/files.sh"], shell = True)
+    proc.wait()
+    f=open('files.txt')
     lines=f.readlines()
-    filenames = lines[0].replace("[", "").replace("]", "").split(", ")
-    urls = lines[1].replace("[","").replace("]", "").split(", ")
-    changelogs = lines[2].replace("[","").replace("]", "").split(", ")
-    for i in range(0, len(urls) ):
+    filenames = lines[0].split(" ")
+    for i in range(0, len(filenames) ):
         filenamelist.insert(i, filenames[i])
-        urllist.insert(i, urls[i])
-        changeloglist.insert(i, changelogs[i])
+        urllist.insert(i, "https://raw.githubusercontent.com/PearlOS-devices/official_devices/pie/"+filenames[i])
+        changeloglist.insert(i, "https://raw.githubusercontent.com/PearlOS-devices/official_devices/pie/"+filenames[i].replace(".json", ".md"))
+	
+    #if debug == 0:
+    #download("https://raw.githubusercontent.com/PearlOS/OTA/master/list.txt", "array.txt")
+    #f=open('array.txt', encoding='utf-8')
+    #lines=f.readlines()
+    #filenames = lines[0].replace("[", "").replace("]", "").split(", ")
+    #urls = lines[1].replace("[","").replace("]", "").split(", ")
+    #changelogs = lines[2].replace("[","").replace("]", "").split(", ")
+    #for i in range(0, len(urls) ):
+        #filenamelist.insert(i, filenames[i])
+        #urllist.insert(i, urls[i])
+        #changeloglist.insert(i, changelogs[i])
 
 def getlink (filename):
     if os.path.isfile(filename):
@@ -189,8 +208,8 @@ def main():
 
     dp.add_handler(CommandHandler("help", help))
     dp.add_handler(CommandHandler("update", update))
-    dp.add_handler(CommandHandler("testoff", testoff))
-    dp.add_handler(CommandHandler("teston", teston))
+    #dp.add_handler(CommandHandler("testoff", testoff))
+    #dp.add_handler(CommandHandler("teston", teston))
 
     dp.add_error_handler(error)
 
