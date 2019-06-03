@@ -53,6 +53,7 @@ conn.close()
     
 toggle = 0
 debug = 0
+exceptionDetails = False
 
 filenamelist = []
 urllist = []
@@ -60,11 +61,6 @@ changeloglist = []
 
 def getLists():
     global filenamelist, urllist, changeloglist, debug
-    import os
-    dirlist = os.listdir("/app")
-
-    from pprint import pprint
-    pprint(dirlist)
 
     os.chmod("./files.sh", 0o755)
     proc = subprocess.Popen([". /app/files.sh"], shell = True)
@@ -77,45 +73,51 @@ def getLists():
         urllist.insert(i, "https://raw.githubusercontent.com/PearlOS-devices/official_devices/pie/"+filenames[i])
         changeloglist.insert(i, "https://raw.githubusercontent.com/PearlOS-devices/official_devices/pie/"+filenames[i].replace(".json", ".md"))
 
-def getDetails(filename):
+def getDetails(filename, update):
+    arrayList = ["null", 0, "null", "null", "null"]
     if os.path.isfile('/app/OTA/'+filename):
         xda = ""
         version = 0
         download = ""
         datetime = 0
         maintainer = ""
-       
-        with open('/app/OTA/'+filename) as jsonDoc:
-            data = json.load(jsonDoc)
-            response = data['response'][0]
-            datetime = int(response['datetime'])
-            maintainer = response['maintainer']
-            xda = response['xda']
-            download = response['url']
-            version = response['version']
+        
+        try:
+            with open('/app/OTA/'+filename) as jsonDoc:
+                data = json.load(jsonDoc)
+                response = data['response'][0]
+                datetime = int(response['datetime'])
+                maintainer = response['maintainer']
+                xda = response['xda']
+                download = response['url']
+                version = response['version']
 
-            conn = psycopg2.connect(DATABASE_URL, sslmode='require')
-            cursor = conn.cursor()
-            cursor.execute("SELECT DATE from LIST WHERE NAME LIKE (%s)", (filename,))
-            entry = cursor.fetchone()
-            if entry is None:
-                print ("here")
-                cursor.execute('INSERT INTO LIST (NAME,DATE) VALUES (%s, %s)', (filename, datetime))
-                toggle = 1
-                
-            else:
-                if entry[0] < datetime:
-                    cursor.execute("UPDATE LIST set DATE = (%s) where NAME = (%s)", (datetime, filename))
+                conn = psycopg2.connect(DATABASE_URL, sslmode='require')
+                cursor = conn.cursor()
+                cursor.execute("SELECT DATE from LIST WHERE NAME LIKE (%s)", (filename,))
+                entry = cursor.fetchone()
+                if entry is None:
+                    print ("here")
+                    cursor.execute('INSERT INTO LIST (NAME,DATE) VALUES (%s, %s)', (filename, datetime))
                     toggle = 1
                     
                 else:
-                    toggle = 0
+                    if entry[0] < datetime:
+                        cursor.execute("UPDATE LIST set DATE = (%s) where NAME = (%s)", (datetime, filename))
+                        toggle = 1
+                        
+                    else:
+                        toggle = 0
+                    
                 
-            
-            conn.commit()
-            conn.close()
-            
-        arrayList = [version, datetime, maintainer, xda, download]
+                conn.commit()
+                conn.close()
+                
+                arrayList = [version, datetime, maintainer, xda, download]
+        except Exception as e:
+            update.message.reply_text("```Error in: "+filename+" while parsing Json file```")
+            update.message.reply_text(str(e))
+            exceptionDetails = True
     return arrayList
 
 def run(updater):
@@ -124,7 +126,7 @@ def run(updater):
     updater.start_webhook(listen="0.0.0.0",
                           port=PORT,
                           url_path=TOKEN)
-    updater.bot.set_webhook("https://{}.herokuapp.com/{}".format(HEROKU_APP_NAME, TOKEN))
+    updater.bot.set_webhook("https://{}.herokuapp.com/{}".format(HEROKU_APP_NAME, TOKEN)) 
 
 def main():
     """Start the bot."""
@@ -147,21 +149,35 @@ def update(bot, update):
         url = urllist[i]
         filename = filenamelist[i]
         changelog = changeloglist[i]
-        arrayList = getDetails(filename)
-        #download (url, filename)
-        version = arrayList[0]
-        date = arrayList[1]
-        maintainer = arrayList[2]
-        xda = arrayList[3]
-        link = arrayList[4]
+        List = getDetails(filename, update) 
+        version = List[0]
+        date = List[1]
+        maintainer = List[2]
+        xda = List[3]
+        link = List[4]
         name = filename.split(".")
         name = name[0]
-        kek = "📢*New Pearl Update*\n\n📱Device: *"+str(name)+"*\n🙎‍♂Maintainer: *"+str(maintainer)+"*\nLinks ⤵️\n\n⬇️ ROM : "+"[Here]("+str(link)+")"+"\n\n📜 XDA : "+"[Here]("+str(xda)+")"+"\n\n📕Changelog: "+"[Here]("+str(changelog)+")"
-        if debug == 1:
-            bot.sendMessage(chat_id='@testchannel1312324', text=str(kek), parse_mode=telegram.ParseMode.MARKDOWN)
-            bot.sendSticker(chat_id='@testchannel1312324', sticker='CAADBQADmwADiYk3GUJzG4UKA2TLAg')
-        elif (debug == 0 and toggle == 1) :
-            bot.sendMessage(chat_id='@Project_Pearl', text=str(kek), parse_mode=telegram.ParseMode.MARKDOWN)
-            bot.sendSticker(chat_id='@Project_Pearl', sticker='CAADBQADmwADiYk3GUJzG4UKA2TLAg')
+        
+        if not exceptionDetails:
+            if not maintainer:
+                update.message.reply_text("Maintainer in json can not be empty")
+            elif not xda:
+                update.message.reply_text("XDA link in json can not be empty")
+            elif not version:
+                update.message.reply_text("Version link in json can not be empty")
+            elif not date:
+                update.message.reply_text("Datetime in json can not be empty")
+            elif not link:
+                update.message.reply_text("URL in json can not be empty")
+            elif:
+                kek = "📢*New Pearl Update*\n\n📱Device: *"+str(name)+"*\n🙎‍♂Maintainer: *"+str(maintainer)+"*\nLinks ⤵️\n\n⬇️ ROM : "+"[Here]("+str(link)+")"+"\n\n📜 XDA : "+"[Here]("+str(xda)+")"+"\n\n📕Changelog: "+"[Here]("+str(changelog)+")"
+                if debug == 1:
+                    bot.sendMessage(chat_id='@testchannel1312324', text=str(kek), parse_mode=telegram.ParseMode.MARKDOWN)
+                    bot.sendSticker(chat_id='@testchannel1312324', sticker='CAADBQADmwADiYk3GUJzG4UKA2TLAg')
+                elif (debug == 0 and toggle == 1) :
+                    bot.sendMessage(chat_id='@Project_Pearl', text=str(kek), parse_mode=telegram.ParseMode.MARKDOWN)
+                    bot.sendSticker(chat_id='@Project_Pearl', sticker='CAADBQADmwADiYk3GUJzG4UKA2TLAg')
+        elif:
+            exceptionDetails = False
 if __name__ == '__main__':
     main()
