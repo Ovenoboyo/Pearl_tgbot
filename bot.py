@@ -9,6 +9,8 @@ import logging
 import telegram
 import psycopg2
 import subprocess
+import json
+import array 
 
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
 # Enable logging
@@ -56,30 +58,6 @@ filenamelist = []
 urllist = []
 changeloglist = []
 
-def download(url, filename):
-    ver = urllib2.urlopen(url)
-    html = ver.read()
-
-    update = html.decode('utf-8')
-    ver.close()
-    if os.path.isfile(filename):
-        os.remove(filename)
-    f = open(filename ,"w+")
-    f.write(update)
-    f.close()
-
-def getver(filename):
-    if os.path.isfile(filename):    
-        lookup = 'version'
-        ver = 0
-
-        with open(filename) as myFile:
-            for num, line in enumerate(myFile, 1):
-                if lookup in line:
-                    version = re.findall("\d+\.\d+", line)
-                    ver = version
-        return ver
-
 def getLists():
     global filenamelist, urllist, changeloglist, debug
     import os
@@ -98,99 +76,47 @@ def getLists():
         filenamelist.insert(i, filenames[i])
         urllist.insert(i, "https://raw.githubusercontent.com/PearlOS-devices/official_devices/pie/"+filenames[i])
         changeloglist.insert(i, "https://raw.githubusercontent.com/PearlOS-devices/official_devices/pie/"+filenames[i].replace(".json", ".md"))
-	
-    #if debug == 0:
-    #download("https://raw.githubusercontent.com/PearlOS/OTA/master/list.txt", "array.txt")
-    #f=open('array.txt', encoding='utf-8')
-    #lines=f.readlines()
-    #filenames = lines[0].replace("[", "").replace("]", "").split(", ")
-    #urls = lines[1].replace("[","").replace("]", "").split(", ")
-    #changelogs = lines[2].replace("[","").replace("]", "").split(", ")
-    #for i in range(0, len(urls) ):
-        #filenamelist.insert(i, filenames[i])
-        #urllist.insert(i, urls[i])
-        #changeloglist.insert(i, changelogs[i])
 
-def getlink (filename):
-    if os.path.isfile(filename):
-        lookup = 'url'
-        url = "null"
-
-        with open(filename) as myFile:
-            for num, line in enumerate(myFile, 1):
-                if lookup in line:
-                    link = line.split(": ")
-                    link = link[1]
-                    link = link.replace("\"","");
-                    link = link.replace(",","");
-                    url = link
-        myFile.close()            
-        return url
-        
-def getxda (filename):
-    if os.path.isfile(filename):    
-        lookup = 'xda'
-        url = "null"
-
-        with open(filename) as myFile:
-            for num, line in enumerate(myFile, 1):
-                if lookup in line:
-                    link = line.split(": ")
-                    link = link[1]
-                    link = link.replace("\"","");
-                    link = link.replace(",","");
-                    url = link
-        myFile.close()            
-        return url
-       
-def getdate (filename):
-    global toggle
-    if os.path.isfile(filename):    
-        lookup = 'datetime'
+def getDetails(filename):
+    if os.path.isfile('/app/OTA/'+filename):
+        xda = ""
+        version = 0
+        download = ""
         datetime = 0
+        maintainer = ""
+       
+        with open('/app/OTA/'+filename) as jsonDoc:
+            data = json.load(jsonDoc)
+            response = data['response'][0]
+            datetime = int(response['datetime'])
+            maintainer = response['maintainer']
+            xda = response['xda']
+            download = response['url']
+            version = response['version']
 
-        with open(filename) as myFile:
-            for num, line in enumerate(myFile, 1):
-                if lookup in line:
-                    date = re.findall(r'\b\d+\b', line)
-                    datetime = int(date[0])
-
-        myFile.close()            
-        conn = psycopg2.connect(DATABASE_URL, sslmode='require')
-        cursor = conn.cursor()
-        cursor.execute("SELECT DATE from LIST WHERE NAME LIKE (%s)", (filename,))
-        entry = cursor.fetchone()
-        if entry is None:
-            print ("here")
-            cursor.execute('INSERT INTO LIST (NAME,DATE) VALUES (%s, %s)', (filename, datetime))
-            toggle = 1
-            
-        else:
-            if entry[0] < datetime:
-                cursor.execute("UPDATE LIST set DATE = (%s) where NAME = (%s)", (datetime, filename))
+            conn = psycopg2.connect(DATABASE_URL, sslmode='require')
+            cursor = conn.cursor()
+            cursor.execute("SELECT DATE from LIST WHERE NAME LIKE (%s)", (filename,))
+            entry = cursor.fetchone()
+            if entry is None:
+                print ("here")
+                cursor.execute('INSERT INTO LIST (NAME,DATE) VALUES (%s, %s)', (filename, datetime))
                 toggle = 1
                 
             else:
-                toggle = 0
+                if entry[0] < datetime:
+                    cursor.execute("UPDATE LIST set DATE = (%s) where NAME = (%s)", (datetime, filename))
+                    toggle = 1
+                    
+                else:
+                    toggle = 0
+                
             
-        
-        conn.commit()
-        conn.close()
-        return datetime
-        
-def getmaintainer(filename):
-    if os.path.isfile(filename):    
-        lookup = 'maintainer'
-        maintainer = 0
-
-        with open(filename) as myFile:
-            for num, line in enumerate(myFile, 1):
-                if lookup in line:
-                    name = line.split(": ")
-                    name = name[1]
-                    name = name.replace("\"","");
-                    maintainer = name.replace(",","");
-        return maintainer
+            conn.commit()
+            conn.close()
+            
+        arrayList = [version, datetime, maintainer, xda, download]
+    return arrayList
 
 def run(updater):
     PORT = int(os.environ.get("PORT", "8443"))
@@ -208,8 +134,8 @@ def main():
 
     dp.add_handler(CommandHandler("help", help))
     dp.add_handler(CommandHandler("update", update))
-    #dp.add_handler(CommandHandler("testoff", testoff))
-    #dp.add_handler(CommandHandler("teston", teston))
+    dp.add_handler(CommandHandler("testoff", testoff))
+    dp.add_handler(CommandHandler("teston", teston))
 
     dp.add_error_handler(error)
 
@@ -221,12 +147,13 @@ def update(bot, update):
         url = urllist[i]
         filename = filenamelist[i]
         changelog = changeloglist[i]
-        download (url, filename)
-        version = getver(filename)
-        link = getlink(filename)
-        xda = getxda(filename)
-        date = getdate(filename)
-        maintainer = getmaintainer(filename)
+        arrayList = getDetails(filename)
+        #download (url, filename)
+        version = arrayList[0]
+        date = arrayList[1]
+        maintainer = arrayList[2]
+        xda = arrayList[3]
+        link = arrayList[4]
         name = filename.split(".")
         name = name[0]
         kek = "📢*New Pearl Update*\n\n📱Device: *"+str(name)+"*\n🙎‍♂Maintainer: *"+str(maintainer)+"*\nLinks ⤵️\n\n⬇️ ROM : "+"[Here]("+str(link)+")"+"\n\n📜 XDA : "+"[Here]("+str(xda)+")"+"\n\n📕Changelog: "+"[Here]("+str(changelog)+")"
