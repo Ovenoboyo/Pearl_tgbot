@@ -215,7 +215,7 @@ def update(bot, update):
         xda = List[3]
         link = List[4]
         name = filename.split(".")
-        name = name[0]
+        name = name[0].capitalize()
         
         if not exceptionDetails:
             if not maintainer:
