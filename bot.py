@@ -35,13 +35,21 @@ def help(bot, update):
 
 def teston(bot, update):
     global debug
-    debug = 1
-    update.message.reply_text('debug on')
+    user = update.message.from_user
+    if user['id'] == 423070089:
+        debug = 1
+        update.message.reply_text('debug on')
+    else: 
+        update.message.reply_text('Unauthorised user')
 
 def testoff(bot, update):
     global debug
-    debug = 0
-    update.message.reply_text('debug off')
+    user = update.message.from_user
+    if user['id'] == 423070089:
+        debug = 0
+        update.message.reply_text('debug off')
+    else: 
+        update.message.reply_text('Unauthorised user')
 
 conn = psycopg2.connect(DATABASE_URL, sslmode='require')
 cur = conn.cursor()
