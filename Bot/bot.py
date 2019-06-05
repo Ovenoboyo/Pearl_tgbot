@@ -3,10 +3,12 @@
 import os
 import logging
 import telegram
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+
 import Utils.JsonUtils as JsonUtils
 import CustomMessgaes.ProgressMessage as ProgressMessage
 
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
+from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackQueryHandler
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                     level=logging.DEBUG)
@@ -18,6 +20,9 @@ DATABASE_URL = os.environ['DATABASE_URL']
 
 toggle = 0
 debug = 0
+updater = Updater(TOKEN)
+dp = updater.dispatcher
+message_handler = MessageHandler
 
 
 def error(bot, update):
@@ -96,25 +101,59 @@ def update(bot, update):
     ProgressMessage.checkCompletedMessage(bot)
 
 
+def build_menu(buttons,
+               n_cols,
+               header_buttons=None,
+               footer_buttons=None):
+    menu = [buttons[i:i + n_cols] for i in range(0, len(buttons), n_cols)]
+    if header_buttons:
+        menu.insert(0, [header_buttons])
+    if footer_buttons:
+        menu.append([footer_buttons])
+    return menu
+
+
+def editJson(bot, update):
+    button_list = [
+        InlineKeyboardButton("Existing User", callback_data='old'),
+        InlineKeyboardButton("New User", callback_data='new')
+    ]
+    reply_markup = InlineKeyboardMarkup(build_menu(button_list, n_cols=1))
+    update.message.reply_text("A two-column menu", reply_markup=reply_markup)
+
+
 def run(updater):
     PORT = int(os.environ.get("PORT", "8443"))
     HEROKU_APP_NAME = os.environ.get("HEROKU_APP_NAME")
     updater.start_webhook(listen="0.0.0.0",
                           port=PORT,
                           url_path=TOKEN)
-    updater.bot.set_webhook("https://{}.herokuapp.com/{}".format(HEROKU_APP_NAME, TOKEN)) 
+    updater.bot.set_webhook("https://{}.herokuapp.com/{}".format(HEROKU_APP_NAME, TOKEN))
+
+
+def removehandler():
+    listhandler = dp.handlers
+    logger.warning(listhandler)
+
+
+def edit_button(bot, update):
+    global message_handler
+    query = update.callback_query
+    query.message.reply_text("Enter new datetime")
+    message_handler = MessageHandler(Filters.text, JsonUtils.setdatetime)
+    dp.add_handler(message_handler, 1)
 
 
 def main():
     """Start the bot."""
-    updater = Updater(TOKEN)
-
-    dp = updater.dispatcher
 
     dp.add_handler(CommandHandler("help", help))
     dp.add_handler(CommandHandler("update", update))
     dp.add_handler(CommandHandler("testoff", testoff))
     dp.add_handler(CommandHandler("teston", teston))
+    dp.add_handler(CommandHandler("edit", editJson))
+    edit_callback_handler = CallbackQueryHandler(edit_button, pattern='old')
+    dp.add_handler(edit_callback_handler)
 
     dp.add_error_handler(error)
 

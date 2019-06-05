@@ -2,7 +2,7 @@ import json
 import psycopg2
 import subprocess
 import os
-from bot import debug, DATABASE_URL
+from bot import DATABASE_URL, removehandler, logger, dp
 from Utils.NetworkUtils import downloadFile
 
 exceptionDetails = False
@@ -10,6 +10,8 @@ exceptionDetails = False
 filenamelist = []
 urllist = []
 changeloglist = []
+
+datetime = 0
 
 def extractDetailsfromFile(filename, fileurl):
     with open(fileurl) as jsonDoc:
@@ -85,3 +87,11 @@ def getDetails(filename, update, url):
         
         
     return arrayList
+
+
+def setdatetime(bot, update):
+    global datetime
+    datetime = update.message.text
+    update.message.reply_text(datetime)
+    logger.warning(dp.handlers)
+
