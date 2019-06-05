@@ -1,12 +1,10 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-import stat
 import os
 import logging
 import telegram
-import array 
 import Utils.JsonUtils as JsonUtils
-from Utils.NetworkUtils import downloadFile
+import CustomMessgaes.ProgressMessage as ProgressMessage
 
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
 
@@ -21,11 +19,15 @@ DATABASE_URL = os.environ['DATABASE_URL']
 toggle = 0
 debug = 0
 
+
 def error(bot, update):
     logger.warning('Update "%s" caused error "%s"', update, context.error)
 
+
 def help(bot, update):
+
     update.message.reply_text('ono')
+
 
 def teston(bot, update):
     global debug
@@ -36,21 +38,26 @@ def teston(bot, update):
     else: 
         update.message.reply_text('Unauthorised user')
 
+
 def testoff(bot, update):
     global debug
     user = update.message.from_user
     if user['id'] == 423070089:
         debug = 0
         update.message.reply_text('Debug off')
+
     else: 
         update.message.reply_text('Unauthorised user')
 
+
 def update(bot, update):
+    global toggle
     JsonUtils.getLists()
     for i in range(len(JsonUtils.filenamelist)):
         url = JsonUtils.urllist[i]
         filename = JsonUtils.filenamelist[i]
         changelog = JsonUtils.changeloglist[i]
+        ProgressMessage.progressMessage(bot, update, filename, i)
         List = JsonUtils.getDetails(filename, update, url)
         version = List[0]
         date = List[1]
@@ -59,6 +66,9 @@ def update(bot, update):
         link = List[4]
         name = filename.split(".")
         name = name[0].capitalize()
+
+        if toggle == 1 or debug == 1:
+            ProgressMessage.updateMessage(bot, filename)
         
         if not JsonUtils.exceptionDetails:
             if not maintainer:
@@ -76,11 +86,15 @@ def update(bot, update):
                 if debug == 1:
                     bot.sendMessage(chat_id='@testchannel1312324', text=str(kek), parse_mode=telegram.ParseMode.MARKDOWN)
                     bot.sendSticker(chat_id='@testchannel1312324', sticker='CAADBQADmwADiYk3GUJzG4UKA2TLAg')
-                elif (debug == 0 and toggle == 1) :
+                    toggle = 0
+                elif debug == 0 and toggle == 1:
                     bot.sendMessage(chat_id='@Project_Pearl', text=str(kek), parse_mode=telegram.ParseMode.MARKDOWN)
                     bot.sendSticker(chat_id='@Project_Pearl', sticker='CAADBQADmwADiYk3GUJzG4UKA2TLAg')
+                    toggle = 0
         else:
             JsonUtils.exceptionDetails = False
+    ProgressMessage.checkCompletedMessage(bot)
+
 
 def run(updater):
     PORT = int(os.environ.get("PORT", "8443"))
@@ -89,6 +103,7 @@ def run(updater):
                           port=PORT,
                           url_path=TOKEN)
     updater.bot.set_webhook("https://{}.herokuapp.com/{}".format(HEROKU_APP_NAME, TOKEN)) 
+
 
 def main():
     """Start the bot."""
@@ -104,6 +119,7 @@ def main():
     dp.add_error_handler(error)
 
     run(updater)
+
 
 if __name__ == '__main__':
     main()

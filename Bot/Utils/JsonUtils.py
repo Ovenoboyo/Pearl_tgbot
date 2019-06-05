@@ -3,6 +3,7 @@ import psycopg2
 import subprocess
 import os
 from bot import debug, DATABASE_URL
+from Utils.NetworkUtils import downloadFile
 
 exceptionDetails = False
 
@@ -42,7 +43,8 @@ def extractDetailsfromFile(filename, fileurl):
         
         arrayList = [version, datetime, maintainer, xda, download]
         return arrayList
-        
+
+
 def getLists():
     global filenamelist, urllist, changeloglist
 
@@ -55,7 +57,7 @@ def getLists():
         filenamelist.insert(i, filenames[i])
         urllist.insert(i, "https://raw.githubusercontent.com/PearlOS-devices/official_devices/pie/"+filenames[i])
         changeloglist.insert(i, "https://raw.githubusercontent.com/PearlOS-devices/official_devices/pie/"+filenames[i].replace(".json", ".md"))
-     
+
 def getDetails(filename, update, url):
     global exceptionDetails
     arrayList = []
@@ -83,4 +85,3 @@ def getDetails(filename, update, url):
         
         
     return arrayList
-        
