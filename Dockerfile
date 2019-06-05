@@ -7,6 +7,6 @@ RUN apt-get install git
 RUN mkdir /app
 ADD . /app
 WORKDIR /app
-RUN chmod +x /app/files.sh
+RUN chmod +x /app/Bot/files.sh
 
-CMD python3 /app/bot.py
+CMD python3 /app/Bot/bot.py
