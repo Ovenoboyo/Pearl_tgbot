@@ -140,7 +140,7 @@ def edit_button_old(bot, update):
     user = query.message.chat
     conn = psycopg2.connect(Constants.DATABASE_URL, sslmode='require')
     cursor = conn.cursor()
-    cursor.execute("SELECT NAMEID from USERLIST WHERE TYPE LIKE (%s)", (str("maintainer"),))
+    cursor.execute("SELECT * FROM USERLIST")
     entry = cursor.fetchall()
     for row in entry:
         if str(row[0]) == str(user['id']):

@@ -250,11 +250,14 @@ def update_json_file(bot, update, message):
                 json.dump(data, jsonDoc)
                 jsonDoc.truncate()
                 jsonDoc.close()
-            update.message.reply_text("Successfully wrote changes")
+            reply = update.message.reply_text("Wrote changes locally...")
+            mid = reply.message_id
+            cid = reply.chat_id
             GitUtils.commit_file(message+'.json', str(user['id']))
 
         except Exception as e:
             update.message.reply_text('Error: '+str(e))
+        bot.edit_message_text(chat_id=cid, message_id=mid, text='Pushed changes to Github :)')
         MainBot.update(bot, update)
     else:
         update.message.reply_text("No such file found")
