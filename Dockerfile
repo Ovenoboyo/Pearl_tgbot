@@ -2,6 +2,7 @@ FROM python:3.7
 
 RUN pip install python-telegram-bot
 RUN pip install psycopg2-binary
+RUN pip install PyGithub
 RUN apt-get install git
 
 RUN mkdir /app
