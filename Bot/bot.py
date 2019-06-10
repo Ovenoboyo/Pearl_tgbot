@@ -135,6 +135,31 @@ def run(updater):
     updater.bot.set_webhook("https://{}.herokuapp.com/{}".format(HEROKU_APP_NAME, Constants.TOKEN))
 
 
+def send_maintainer_choice(bot, query):
+    button_list = [
+        InlineKeyboardButton("Edit JSON", callback_data='json'),
+        InlineKeyboardButton("Edit Changelog", callback_data='changelog')
+    ]
+    reply_markup = InlineKeyboardMarkup(build_menu(button_list, n_cols=1))
+    query.message.reply_text("Henlo Maintainer", reply_markup=reply_markup)
+
+
+def set_datetime_text(bot, update):
+    query = update.callback_query
+    user = query.message.chat
+    JsonUtils.save_state_to_database(0, user)
+    query.message.reply_text("Enter new datetime or send now to use current timestamp")
+    query.message.delete()
+
+
+def set_changelog_text(bot, update):
+    query = update.callback_query
+    user = query.message.chat
+    JsonUtils.save_state_to_database(6, user)
+    query.message.reply_text("Enter name of device")
+    query.message.delete()
+
+
 def edit_button_old(bot, update):
     query = update.callback_query
     user = query.message.chat
@@ -144,8 +169,7 @@ def edit_button_old(bot, update):
     entry = cursor.fetchall()
     for row in entry:
         if str(row[0]) == str(user['id']):
-            JsonUtils.save_state_to_database(0, user)
-            query.message.reply_text("Enter new datetime or send now to use current timestamp")
+            send_maintainer_choice(bot, query)
             query.message.delete()
             return
     query.message.reply_text("Unauthorised user :''(")
@@ -210,6 +234,12 @@ def remove_maintainer_button(bot, update):
     query.message.delete()
 
 
+def cancel_ops(bot, update):
+    user = update.message.chat
+    update.message.reply_text("Enter device name")
+    JsonUtils.save_state_to_database(99, user)
+
+
 def main():
     updater = Updater(Constants.TOKEN)
     dp = updater.dispatcher
@@ -219,12 +249,19 @@ def main():
     dp.add_handler(CommandHandler("testoff", testoff))
     dp.add_handler(CommandHandler("teston", teston))
     dp.add_handler(CommandHandler("edit", editJson))
+    dp.add_handler(CommandHandler("cancel", cancel_ops))
 
     edit_callback_handler_old = CallbackQueryHandler(edit_button_old, pattern='old')
     edit_callback_handler_new = CallbackQueryHandler(edit_button_new, pattern='new')
 
     dp.add_handler(edit_callback_handler_old)
     dp.add_handler(edit_callback_handler_new)
+
+    edit_callback_handler_old_json = CallbackQueryHandler(set_datetime_text, pattern='json')
+    edit_callback_handler_new_changelog = CallbackQueryHandler(set_changelog_text, pattern='changelog')
+
+    dp.add_handler(edit_callback_handler_old_json)
+    dp.add_handler(edit_callback_handler_new_changelog)
 
     maintainer_callback_handler_add = CallbackQueryHandler(add_maintainer_button, pattern='add')
     maintainer_callback_handler_remove = CallbackQueryHandler(remove_maintainer_button, pattern='remove')

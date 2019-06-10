@@ -18,6 +18,7 @@ urllist = []
 changeloglist = []
 
 toggle = 0
+filename = ""
 
 
 def extract_details_from_file(filename, fileurl):
@@ -120,6 +121,10 @@ def set_details(bot, update):
         remove_maintainer(update, message)
     elif state == 5:
         update_json_file(bot, update, message)
+    elif state == 6:
+        set_changelog_device(update, message)
+    elif state == 7:
+        set_changelog(update, message)
 
 
 def set_date(update, message):
@@ -254,13 +259,38 @@ def update_json_file(bot, update, message):
             mid = reply.message_id
             cid = reply.chat_id
             GitUtils.commit_file(message+'.json', str(user['id']))
+            bot.edit_message_text(chat_id=cid, message_id=mid, text='Pushed changes to Github :)')
+            MainBot.update(bot, update)
 
         except Exception as e:
             update.message.reply_text('Error: '+str(e))
-        bot.edit_message_text(chat_id=cid, message_id=mid, text='Pushed changes to Github :)')
-        MainBot.update(bot, update)
     else:
-        update.message.reply_text("No such file found")
+        update.message.reply_text("No such file found, enter again.")
+
+
+def set_changelog_device(update, message):
+    global filename
+    message = message.lower()
+    user = update.message.from_user
+    filename = message+".md"
+    update.message.reply_text("Enter Changelog in one message")
+    save_state_to_database(7, user)
+
+
+def set_changelog(update, message):
+    GitUtils.pull()
+    try:
+        user = update.message.from_user
+        with open(Constants.OTA_PATH+filename, 'w') as f:
+            f.seek(0)
+            f.write(message)
+            f.truncate()
+        update.message.reply_text("Wrote Changelog to "+filename)
+
+        GitUtils.commit_file(message + '.json', str(user['id']))
+        save_state_to_database(99, user)
+    except IOError as e:
+        update.message.reply_text("Error: "+e)
 
 
 def save_state_to_database(state, user):
